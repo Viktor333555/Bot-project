@@ -8,8 +8,9 @@ obj/
 *.exe
 *.pdb
 
-# User settings
+# User settings (holds the Firebase database secret; never commit)
 settings.txt
+!settings.example.txt
 
 # Logs
 bot_log.txt

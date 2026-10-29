@@ -1,0 +1,8 @@
+# Add this line to settings.txt (same key:::"value" format as the other settings).
+# settings.txt is gitignored. Never commit a real database secret.
+#
+# Firebase Realtime Database secret, sent as the auth query parameter.
+# If this entry is omitted or left empty, the FIREBASE_SECRET environment
+# variable is used instead.
+
+FirebaseSecret:::"YOUR_FIREBASE_DATABASE_SECRET"

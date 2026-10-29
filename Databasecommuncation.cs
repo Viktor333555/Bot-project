@@ -15,13 +15,85 @@ public class Databasecommuncation
 {
     private static readonly HttpClient client = new HttpClient();
     private const string FIREBASE_URL = "https://civbot-954eb-default-rtdb.europe-west1.firebasedatabase.app";
-    private const string FIREBASE_SECRET = "KbQ1PdrAGP5AzHW5GIfvj34gP07L8ZsYIvNB3BO4";
+    private const string FirebaseSecretSettingName = "FirebaseSecret";
+    private const string FirebaseSecretEnvironmentVariable = "FIREBASE_SECRET";
     private static string? _botId = null;
-    
-    // Helper to add auth to URL
+    private static string? _loadedSecret;
+    private static readonly Lazy<string> LoadedFirebaseSecret = new Lazy<string>(LoadFirebaseSecret);
+
+    // Appends ?auth= using the database secret from settings.txt, or from
+    // the FIREBASE_SECRET environment variable when the file has no value.
     private static string AddAuth(string url)
     {
-        return $"{url}?auth={FIREBASE_SECRET}";
+        return $"{url}?auth={GetFirebaseSecret()}";
+    }
+
+    private static string GetFirebaseSecret() => LoadedFirebaseSecret.Value;
+
+    private static string LoadFirebaseSecret()
+    {
+        string? secret = ResolveFirebaseSecret();
+        _loadedSecret = secret;
+        if (string.IsNullOrEmpty(secret))
+        {
+            Console.WriteLine("⚠ Firebase secret not configured. Add FirebaseSecret to settings.txt or set the FIREBASE_SECRET environment variable.");
+            return "";
+        }
+        return secret;
+    }
+
+    private static string? ResolveFirebaseSecret()
+    {
+        string? fromSettings = ReadFirebaseSecretFromSettings();
+        if (!string.IsNullOrWhiteSpace(fromSettings))
+            return fromSettings;
+
+        string? fromEnvironment = Environment.GetEnvironmentVariable(FirebaseSecretEnvironmentVariable);
+        if (!string.IsNullOrWhiteSpace(fromEnvironment))
+            return fromEnvironment.Trim();
+
+        return null;
+    }
+
+    // Same settings.txt location and key:::"value" format as Settings.
+    private static string? ReadFirebaseSecretFromSettings()
+    {
+        try
+        {
+            string path = Settings.filepath_settings;
+            if (!File.Exists(path))
+                return null;
+
+            string? secret = null;
+            foreach (string line in File.ReadAllLines(path))
+            {
+                (string name, string param) = Settings.ParseIntoNameAndParameter(line);
+                if (!string.Equals(name, FirebaseSecretSettingName, StringComparison.Ordinal))
+                    continue;
+                secret = string.IsNullOrWhiteSpace(param) ? null : param;
+            }
+            return secret;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠ Could not read Firebase secret from settings: {Redact(ex.Message)}");
+            return null;
+        }
+    }
+
+    private static string Redact(string? message)
+    {
+        if (string.IsNullOrEmpty(message))
+            return "";
+
+        string redacted = message;
+        if (!string.IsNullOrEmpty(_loadedSecret))
+            redacted = redacted.Replace(_loadedSecret, "***", StringComparison.Ordinal);
+
+        return System.Text.RegularExpressions.Regex.Replace(
+            redacted,
+            @"([?&]auth=)[^&\s""']*",
+            "$1***");
     }
     
     // Get or create a persistent bot ID
@@ -94,7 +166,7 @@ public class Databasecommuncation
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠ Could not update bot info: {ex.Message}");
+            Console.WriteLine($"⚠ Could not update bot info: {Redact(ex.Message)}");
         }
     }
     
@@ -144,7 +216,7 @@ public class Databasecommuncation
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error updating bot stats: {ex.Message}");
+            Console.WriteLine($"Error updating bot stats: {Redact(ex.Message)}");
         }
     }
     
@@ -199,7 +271,7 @@ public class Databasecommuncation
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error logging player connection: {ex.Message}");
+            Console.WriteLine($"Error logging player connection: {Redact(ex.Message)}");
         }
     }
     
@@ -228,7 +300,7 @@ public class Databasecommuncation
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error getting data: {ex.Message}");
+            Console.WriteLine($"Error getting data: {Redact(ex.Message)}");
             return null!;
         }
     }
@@ -247,7 +319,7 @@ public class Databasecommuncation
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error posting data: {ex.Message}");
+            Console.WriteLine($"Error posting data: {Redact(ex.Message)}");
             return null!;
         }
     }
@@ -266,7 +338,7 @@ public class Databasecommuncation
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error replacing data: {ex.Message}");
+            Console.WriteLine($"Error replacing data: {Redact(ex.Message)}");
             return false;
         }
     }
@@ -285,7 +357,7 @@ public class Databasecommuncation
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error updating data: {ex.Message}");
+            Console.WriteLine($"Error updating data: {Redact(ex.Message)}");
             return false;
         }
     }
@@ -301,7 +373,7 @@ public class Databasecommuncation
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error deleting data: {ex.Message}");
+            Console.WriteLine($"Error deleting data: {Redact(ex.Message)}");
             return false;
         }
     }
